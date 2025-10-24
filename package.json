@@ -32,12 +32,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/hexcms.git"
+    "url": "https://github.com/Hexaxia-Technologies/hexcms.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/hexcms/issues"
+    "url": "https://github.com/Hexaxia-Technologies/hexcms/issues"
   },
-  "homepage": "https://github.com/yourusername/hexcms#readme",
+  "homepage": "https://github.com/Hexaxia-Technologies/hexcms#readme",
   "dependencies": {
     "@octokit/rest": "^22.0.0",
     "@vercel/postgres": "^0.10.0",

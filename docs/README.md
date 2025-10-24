@@ -440,7 +440,7 @@ Perform comprehensive security audit following
 1. Check [Troubleshooting Guide](./guides/troubleshooting.md)
 2. Review [Quick Reference](./guides/quick-reference.md)
 3. Read relevant topic docs
-4. Check [GitHub Issues](https://github.com/yourusername/heXcms/issues)
+4. Check [GitHub Issues](https://github.com/Hexaxia-Technologies/hexcms/issues)
 
 ### Security Issues
 
