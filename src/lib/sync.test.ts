@@ -8,7 +8,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import crypto from 'crypto';
 
-// Mock @neondatabase/serverless
+// Mock database adapter
 const { mockSql } = vi.hoisted(() => ({
   mockSql: vi.fn(),
 }));
@@ -26,8 +26,10 @@ vi.mock('@octokit/rest', () => {
   };
 });
 
-vi.mock('@neondatabase/serverless', () => ({
-  neon: vi.fn(() => mockSql),
+vi.mock('./db-adapter', () => ({
+  sql: mockSql,
+  getCurrentDriver: vi.fn(() => 'neon'),
+  closeDatabase: vi.fn(),
 }));
 
 vi.mock('./markdown', () => ({

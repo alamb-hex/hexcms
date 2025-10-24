@@ -13,7 +13,7 @@
 
 import { Octokit } from '@octokit/rest';
 import crypto from 'crypto';
-import { neon } from '@neondatabase/serverless';
+import { sql } from './db-adapter';
 import {
   parsePostFrontmatter,
   parseAuthorFrontmatter,
@@ -30,9 +30,6 @@ import type {
   AuthorFrontmatter,
   PageFrontmatter,
 } from '@/types';
-
-// Initialize Neon serverless SQL client
-const sql = neon(process.env.DATABASE_URL!);
 
 // ===========================================================================
 // GitHub Configuration

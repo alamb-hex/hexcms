@@ -2,10 +2,14 @@
  * Database Connection and Query Utilities
  *
  * This module provides database connection management and query helpers
- * for interacting with PostgreSQL using Neon serverless driver.
+ * for interacting with PostgreSQL.
+ *
+ * Supports multiple database drivers via db-adapter:
+ * - Neon serverless (for Vercel edge runtime)
+ * - node-postgres/pg (for Docker, VPS, Railway, etc.)
  */
 
-import { neon } from '@neondatabase/serverless';
+import { sql } from './db-adapter';
 import type { Post, Author, Tag, Page, PostFilters, PaginatedResponse } from '@/types';
 
 // ===========================================================================
@@ -13,10 +17,10 @@ import type { Post, Author, Tag, Page, PostFilters, PaginatedResponse } from '@/
 // ===========================================================================
 
 /**
- * Execute a SQL query
- * Using Neon's serverless driver optimized for Vercel edge runtime
+ * SQL query function
+ * The adapter automatically uses the appropriate driver (Neon or pg)
+ * based on DATABASE_DRIVER env var or auto-detection.
  */
-const sql = neon(process.env.DATABASE_URL!);
 export const db = sql;
 
 // ===========================================================================

@@ -6,14 +6,16 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock @neondatabase/serverless
-// neon() returns a sql function that we can mock
+// Mock database adapter
+// The adapter exports a sql function that we can mock
 const { mockSql } = vi.hoisted(() => ({
   mockSql: vi.fn(),
 }));
 
-vi.mock('@neondatabase/serverless', () => ({
-  neon: vi.fn(() => mockSql),
+vi.mock('./db-adapter', () => ({
+  sql: mockSql,
+  getCurrentDriver: vi.fn(() => 'neon'),
+  closeDatabase: vi.fn(),
 }));
 
 import {
