@@ -42,8 +42,8 @@
   },
   "homepage": "https://github.com/alamb-hex/hexcms#readme",
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
     "@octokit/rest": "^22.0.0",
-    "@vercel/postgres": "^0.10.0",
     "date-fns": "^4.1.0",
     "gray-matter": "^4.0.3",
     "next": "^16.0.0",

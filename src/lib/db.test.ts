@@ -5,7 +5,17 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { sql } from '@vercel/postgres';
+
+// Mock @neondatabase/serverless
+// neon() returns a sql function that we can mock
+const { mockSql } = vi.hoisted(() => ({
+  mockSql: vi.fn(),
+}));
+
+vi.mock('@neondatabase/serverless', () => ({
+  neon: vi.fn(() => mockSql),
+}));
+
 import {
   getPosts,
   getPostBySlug,
@@ -23,11 +33,6 @@ import {
   getPageBySlug,
   testConnection,
 } from './db';
-
-// Mock @vercel/postgres
-vi.mock('@vercel/postgres', () => ({
-  sql: vi.fn(),
-}));
 
 // ===========================================================================
 // Post Query Tests
@@ -58,7 +63,7 @@ describe('Post Queries', () => {
         updated_at: new Date('2024-01-15'),
       };
 
-      (sql as any).mockResolvedValue({ rows: [mockPost] });
+      mockSql.mockResolvedValue([mockPost]);
 
       const result = await getPostBySlug('test-post');
 
@@ -67,20 +72,20 @@ describe('Post Queries', () => {
       expect(result?.title).toBe('Test Post');
       expect(result?.status).toBe('published');
       expect(result?.views).toBe(100);
-      expect(sql).toHaveBeenCalledTimes(1);
+      expect(mockSql).toHaveBeenCalledTimes(1);
     });
 
     it('should return null when post not found', async () => {
-      (sql as any).mockResolvedValue({ rows: [] });
+      mockSql.mockResolvedValue([]);
 
       const result = await getPostBySlug('nonexistent');
 
       expect(result).toBeNull();
-      expect(sql).toHaveBeenCalledTimes(1);
+      expect(mockSql).toHaveBeenCalledTimes(1);
     });
 
     it('should throw error on database failure', async () => {
-      (sql as any).mockRejectedValue(new Error('Database connection failed'));
+      mockSql.mockRejectedValue(new Error('Database connection failed'));
 
       await expect(getPostBySlug('test-post')).rejects.toThrow('Failed to fetch post');
     });
@@ -114,10 +119,10 @@ describe('Post Queries', () => {
       ];
 
       // First call for count, second for data
-      (sql as any).query = vi
-        .fn()
-        .mockResolvedValueOnce({ rows: [{ total: '2' }] })
-        .mockResolvedValueOnce({ rows: mockPosts });
+      mockSql.mockReset()
+
+        .mockResolvedValueOnce([{ total: '2' }])
+        .mockResolvedValueOnce(mockPosts);
 
       const result = await getPosts({ limit: 10, offset: 0 });
 
@@ -129,80 +134,80 @@ describe('Post Queries', () => {
     });
 
     it('should filter by status', async () => {
-      (sql as any).query = vi
-        .fn()
-        .mockResolvedValueOnce({ rows: [{ total: '1' }] })
-        .mockResolvedValueOnce({ rows: [] });
+      mockSql.mockReset()
+
+        .mockResolvedValueOnce([{ total: '1' }])
+        .mockResolvedValueOnce([]);
 
       await getPosts({ status: 'draft' });
 
-      expect(sql.query).toHaveBeenCalledWith(
+      expect(mockSql).toHaveBeenCalledWith(
         expect.stringContaining('p.status = $1'),
         expect.arrayContaining(['draft'])
       );
     });
 
     it('should filter by authorId', async () => {
-      (sql as any).query = vi
-        .fn()
-        .mockResolvedValueOnce({ rows: [{ total: '0' }] })
-        .mockResolvedValueOnce({ rows: [] });
+      mockSql.mockReset()
+
+        .mockResolvedValueOnce([{ total: '0' }])
+        .mockResolvedValueOnce([]);
 
       await getPosts({ authorId: 'author-123' });
 
-      expect(sql.query).toHaveBeenCalledWith(
+      expect(mockSql).toHaveBeenCalledWith(
         expect.stringContaining('p.author_id = $1'),
         expect.arrayContaining(['author-123'])
       );
     });
 
     it('should filter by featured status', async () => {
-      (sql as any).query = vi
-        .fn()
-        .mockResolvedValueOnce({ rows: [{ total: '0' }] })
-        .mockResolvedValueOnce({ rows: [] });
+      mockSql.mockReset()
+
+        .mockResolvedValueOnce([{ total: '0' }])
+        .mockResolvedValueOnce([]);
 
       await getPosts({ featured: true });
 
-      expect(sql.query).toHaveBeenCalledWith(
+      expect(mockSql).toHaveBeenCalledWith(
         expect.stringContaining('p.featured = $1'),
         expect.arrayContaining([true])
       );
     });
 
     it('should filter by tag', async () => {
-      (sql as any).query = vi
-        .fn()
-        .mockResolvedValueOnce({ rows: [{ total: '0' }] })
-        .mockResolvedValueOnce({ rows: [] });
+      mockSql.mockReset()
+
+        .mockResolvedValueOnce([{ total: '0' }])
+        .mockResolvedValueOnce([]);
 
       await getPosts({ tag: 'javascript' });
 
-      expect(sql.query).toHaveBeenCalledWith(
+      expect(mockSql).toHaveBeenCalledWith(
         expect.stringContaining('INNER JOIN post_tags pt'),
         expect.arrayContaining(['javascript'])
       );
     });
 
     it('should search using full-text search', async () => {
-      (sql as any).query = vi
-        .fn()
-        .mockResolvedValueOnce({ rows: [{ total: '0' }] })
-        .mockResolvedValueOnce({ rows: [] });
+      mockSql.mockReset()
+
+        .mockResolvedValueOnce([{ total: '0' }])
+        .mockResolvedValueOnce([]);
 
       await getPosts({ search: 'typescript' });
 
-      expect(sql.query).toHaveBeenCalledWith(
+      expect(mockSql).toHaveBeenCalledWith(
         expect.stringContaining('plainto_tsquery'),
         expect.arrayContaining(['typescript'])
       );
     });
 
     it('should handle pagination correctly', async () => {
-      (sql as any).query = vi
-        .fn()
-        .mockResolvedValueOnce({ rows: [{ total: '50' }] })
-        .mockResolvedValueOnce({ rows: [] });
+      mockSql.mockReset()
+
+        .mockResolvedValueOnce([{ total: '50' }])
+        .mockResolvedValueOnce([]);
 
       const result = await getPosts({ limit: 10, offset: 20 });
 
@@ -213,24 +218,24 @@ describe('Post Queries', () => {
     });
 
     it('should support custom ordering', async () => {
-      (sql as any).query = vi
-        .fn()
-        .mockResolvedValueOnce({ rows: [{ total: '0' }] })
-        .mockResolvedValueOnce({ rows: [] });
+      mockSql.mockReset()
+
+        .mockResolvedValueOnce([{ total: '0' }])
+        .mockResolvedValueOnce([]);
 
       await getPosts({ orderBy: 'views', orderDirection: 'asc' });
 
-      expect(sql.query).toHaveBeenCalledWith(
+      expect(mockSql).toHaveBeenCalledWith(
         expect.stringContaining('ORDER BY p.views ASC'),
         expect.any(Array)
       );
     });
 
     it('should combine multiple filters', async () => {
-      (sql as any).query = vi
-        .fn()
-        .mockResolvedValueOnce({ rows: [{ total: '0' }] })
-        .mockResolvedValueOnce({ rows: [] });
+      mockSql.mockReset()
+
+        .mockResolvedValueOnce([{ total: '0' }])
+        .mockResolvedValueOnce([]);
 
       await getPosts({
         status: 'published',
@@ -239,7 +244,7 @@ describe('Post Queries', () => {
         limit: 5,
       });
 
-      expect(sql.query).toHaveBeenCalledWith(
+      expect(mockSql).toHaveBeenCalledWith(
         expect.stringContaining('p.status = $1'),
         expect.arrayContaining(['published', true, 'test', 5, 0])
       );
@@ -253,29 +258,29 @@ describe('Post Queries', () => {
         { id: '2', slug: 'featured-2', title: 'Featured 2', featured: true },
       ];
 
-      (sql as any).mockResolvedValue({
-        rows: mockPosts.map((p) => ({
+      mockSql.mockResolvedValue(
+        mockPosts.map((p) => ({
           ...p,
           content: 'content',
           status: 'published',
           views: 0,
           created_at: new Date(),
           updated_at: new Date(),
-        })),
-      });
+        }))
+      );
 
       const result = await getFeaturedPosts(3);
 
       expect(result).toHaveLength(2);
-      expect(sql).toHaveBeenCalledTimes(1);
+      expect(mockSql).toHaveBeenCalledTimes(1);
     });
 
     it('should use default limit of 3', async () => {
-      (sql as any).mockResolvedValue({ rows: [] });
+      mockSql.mockResolvedValue([]);
 
       await getFeaturedPosts();
 
-      expect(sql).toHaveBeenCalledTimes(1);
+      expect(mockSql).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -295,17 +300,17 @@ describe('Post Queries', () => {
         },
       ];
 
-      (sql as any).mockResolvedValue({ rows: mockPosts });
+      mockSql.mockResolvedValue(mockPosts);
 
       const result = await searchPosts('typescript', 20);
 
       expect(result).toHaveLength(1);
       expect(result[0].title).toBe('TypeScript Tutorial');
-      expect(sql).toHaveBeenCalledTimes(1);
+      expect(mockSql).toHaveBeenCalledTimes(1);
     });
 
     it('should return empty array when no matches', async () => {
-      (sql as any).mockResolvedValue({ rows: [] });
+      mockSql.mockResolvedValue([]);
 
       const result = await searchPosts('nonexistent');
 
@@ -329,12 +334,12 @@ describe('Post Queries', () => {
         },
       ];
 
-      (sql as any).mockResolvedValue({ rows: mockPosts });
+      mockSql.mockResolvedValue(mockPosts);
 
       const result = await getPostsByTag('javascript');
 
       expect(result).toHaveLength(1);
-      expect(sql).toHaveBeenCalledTimes(1);
+      expect(mockSql).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -354,26 +359,26 @@ describe('Post Queries', () => {
         },
       ];
 
-      (sql as any).mockResolvedValue({ rows: mockPosts });
+      mockSql.mockResolvedValue(mockPosts);
 
       const result = await getPostsByAuthor('john-doe');
 
       expect(result).toHaveLength(1);
-      expect(sql).toHaveBeenCalledTimes(1);
+      expect(mockSql).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('incrementPostViews', () => {
     it('should increment view count for post', async () => {
-      (sql as any).mockResolvedValue({ rows: [] });
+      mockSql.mockResolvedValue([]);
 
       await incrementPostViews('test-post');
 
-      expect(sql).toHaveBeenCalledTimes(1);
+      expect(mockSql).toHaveBeenCalledTimes(1);
     });
 
     it('should handle errors gracefully', async () => {
-      (sql as any).mockRejectedValue(new Error('Database error'));
+      mockSql.mockRejectedValue(new Error('Database error'));
 
       await expect(incrementPostViews('test-post')).rejects.toThrow(
         'Failed to increment post views'
@@ -416,7 +421,7 @@ describe('Author Queries', () => {
         },
       ];
 
-      (sql as any).mockResolvedValue({ rows: mockAuthors });
+      mockSql.mockResolvedValue(mockAuthors);
 
       const result = await getAuthors();
 
@@ -424,11 +429,11 @@ describe('Author Queries', () => {
       expect(result[0].name).toBe('John Doe');
       expect(result[0].social).toEqual({ twitter: 'johndoe' });
       expect(result[1].name).toBe('Jane Smith');
-      expect(sql).toHaveBeenCalledTimes(1);
+      expect(mockSql).toHaveBeenCalledTimes(1);
     });
 
     it('should handle empty results', async () => {
-      (sql as any).mockResolvedValue({ rows: [] });
+      mockSql.mockResolvedValue([]);
 
       const result = await getAuthors();
 
@@ -436,7 +441,7 @@ describe('Author Queries', () => {
     });
 
     it('should throw error on database failure', async () => {
-      (sql as any).mockRejectedValue(new Error('Database error'));
+      mockSql.mockRejectedValue(new Error('Database error'));
 
       await expect(getAuthors()).rejects.toThrow('Failed to fetch authors');
     });
@@ -457,7 +462,7 @@ describe('Author Queries', () => {
         updated_at: new Date(),
       };
 
-      (sql as any).mockResolvedValue({ rows: [mockAuthor] });
+      mockSql.mockResolvedValue([mockAuthor]);
 
       const result = await getAuthorBySlug('john-doe');
 
@@ -469,7 +474,7 @@ describe('Author Queries', () => {
     });
 
     it('should return null when author not found', async () => {
-      (sql as any).mockResolvedValue({ rows: [] });
+      mockSql.mockResolvedValue([]);
 
       const result = await getAuthorBySlug('nonexistent');
 
@@ -486,7 +491,7 @@ describe('Author Queries', () => {
         updated_at: new Date(),
       };
 
-      (sql as any).mockResolvedValue({ rows: [mockAuthor] });
+      mockSql.mockResolvedValue([mockAuthor]);
 
       const result = await getAuthorBySlug('john-doe');
 
@@ -522,7 +527,7 @@ describe('Tag Queries', () => {
         },
       ];
 
-      (sql as any).mockResolvedValue({ rows: mockTags });
+      mockSql.mockResolvedValue(mockTags);
 
       const result = await getTags();
 
@@ -533,7 +538,7 @@ describe('Tag Queries', () => {
     });
 
     it('should handle empty results', async () => {
-      (sql as any).mockResolvedValue({ rows: [] });
+      mockSql.mockResolvedValue([]);
 
       const result = await getTags();
 
@@ -551,7 +556,7 @@ describe('Tag Queries', () => {
         created_at: new Date(),
       };
 
-      (sql as any).mockResolvedValue({ rows: [mockTag] });
+      mockSql.mockResolvedValue([mockTag]);
 
       const result = await getTagBySlug('javascript');
 
@@ -562,7 +567,7 @@ describe('Tag Queries', () => {
     });
 
     it('should return null when tag not found', async () => {
-      (sql as any).mockResolvedValue({ rows: [] });
+      mockSql.mockResolvedValue([]);
 
       const result = await getTagBySlug('nonexistent');
 
@@ -587,7 +592,7 @@ describe('Tag Queries', () => {
         },
       ];
 
-      (sql as any).mockResolvedValue({ rows: mockTags });
+      mockSql.mockResolvedValue(mockTags);
 
       const result = await getTagsForPost('post-123');
 
@@ -597,7 +602,7 @@ describe('Tag Queries', () => {
     });
 
     it('should return empty array when post has no tags', async () => {
-      (sql as any).mockResolvedValue({ rows: [] });
+      mockSql.mockResolvedValue([]);
 
       const result = await getTagsForPost('post-123');
 
@@ -642,7 +647,7 @@ describe('Page Queries', () => {
         },
       ];
 
-      (sql as any).mockResolvedValue({ rows: mockPages });
+      mockSql.mockResolvedValue(mockPages);
 
       const result = await getPages();
 
@@ -652,7 +657,7 @@ describe('Page Queries', () => {
     });
 
     it('should handle empty results', async () => {
-      (sql as any).mockResolvedValue({ rows: [] });
+      mockSql.mockResolvedValue([]);
 
       const result = await getPages();
 
@@ -676,7 +681,7 @@ describe('Page Queries', () => {
         updated_at: new Date(),
       };
 
-      (sql as any).mockResolvedValue({ rows: [mockPage] });
+      mockSql.mockResolvedValue([mockPage]);
 
       const result = await getPageBySlug('about');
 
@@ -688,7 +693,7 @@ describe('Page Queries', () => {
     });
 
     it('should return null when page not found', async () => {
-      (sql as any).mockResolvedValue({ rows: [] });
+      mockSql.mockResolvedValue([]);
 
       const result = await getPageBySlug('nonexistent');
 
@@ -696,11 +701,11 @@ describe('Page Queries', () => {
     });
 
     it('should only return published pages', async () => {
-      (sql as any).mockResolvedValue({ rows: [] });
+      mockSql.mockResolvedValue([]);
 
       await getPageBySlug('draft-page');
 
-      expect(sql).toHaveBeenCalledTimes(1);
+      expect(mockSql).toHaveBeenCalledTimes(1);
       // Verify the query includes status check (implicitly tested by mock setup)
     });
   });
@@ -717,16 +722,16 @@ describe('Utility Functions', () => {
 
   describe('testConnection', () => {
     it('should return true on successful connection', async () => {
-      (sql as any).mockResolvedValue({ rows: [{ '?column?': 1 }] });
+      mockSql.mockResolvedValue([{ '?column?': 1 }]);
 
       const result = await testConnection();
 
       expect(result).toBe(true);
-      expect(sql).toHaveBeenCalledTimes(1);
+      expect(mockSql).toHaveBeenCalledTimes(1);
     });
 
     it('should return false on connection failure', async () => {
-      (sql as any).mockRejectedValue(new Error('Connection failed'));
+      mockSql.mockRejectedValue(new Error('Connection failed'));
 
       const result = await testConnection();
 
@@ -745,7 +750,7 @@ describe('Error Handling', () => {
   });
 
   it('should wrap database errors with context', async () => {
-    (sql as any).mockRejectedValue(new Error('Connection timeout'));
+    mockSql.mockRejectedValue(new Error('Connection timeout'));
 
     await expect(getPostBySlug('test')).rejects.toThrow('Failed to fetch post');
     await expect(getAuthors()).rejects.toThrow('Failed to fetch authors');
@@ -772,7 +777,7 @@ describe('Error Handling', () => {
       updated_at: new Date(),
     };
 
-    (sql as any).mockResolvedValue({ rows: [mockPost] });
+    mockSql.mockResolvedValue([mockPost]);
 
     const result = await getPostBySlug('test');
 

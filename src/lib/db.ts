@@ -2,10 +2,10 @@
  * Database Connection and Query Utilities
  *
  * This module provides database connection management and query helpers
- * for interacting with PostgreSQL using Vercel Postgres.
+ * for interacting with PostgreSQL using Neon serverless driver.
  */
 
-import { sql } from '@vercel/postgres';
+import { neon } from '@neondatabase/serverless';
 import type { Post, Author, Tag, Page, PostFilters, PaginatedResponse } from '@/types';
 
 // ===========================================================================
@@ -14,8 +14,9 @@ import type { Post, Author, Tag, Page, PostFilters, PaginatedResponse } from '@/
 
 /**
  * Execute a SQL query
- * Wrapper around Vercel Postgres for consistency
+ * Using Neon's serverless driver optimized for Vercel edge runtime
  */
+const sql = neon(process.env.DATABASE_URL!);
 export const db = sql;
 
 // ===========================================================================
@@ -107,8 +108,8 @@ export async function getPosts(filters: PostFilters = {}): Promise<PaginatedResp
       ${whereClause}
     `;
 
-    const countResult = await sql.query(countQuery, params);
-    const total = parseInt(countResult.rows[0].total, 10);
+    const countRows = await (sql as any)(countQuery, params);
+    const total = parseInt(countRows[0].total, 10);
 
     // Get paginated results
     const dataQuery = `
@@ -134,9 +135,9 @@ export async function getPosts(filters: PostFilters = {}): Promise<PaginatedResp
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
-    const dataResult = await sql.query(dataQuery, [...params, limit, offset]);
+    const dataRows = await (sql as any)(dataQuery, [...params, limit, offset]);
 
-    const data = dataResult.rows.map(mapRowToPost);
+    const data = dataRows.map(mapRowToPost);
 
     return {
       data,
@@ -163,7 +164,7 @@ export async function getPosts(filters: PostFilters = {}): Promise<PaginatedResp
  */
 export async function getPostBySlug(slug: string): Promise<Post | null> {
   try {
-    const result = await sql`
+    const rows = await sql`
       SELECT
         p.id,
         p.slug,
@@ -185,11 +186,11 @@ export async function getPostBySlug(slug: string): Promise<Post | null> {
       LIMIT 1
     `;
 
-    if (result.rows.length === 0) {
+    if (rows.length === 0) {
       return null;
     }
 
-    return mapRowToPost(result.rows[0]);
+    return mapRowToPost(rows[0]);
   } catch (error) {
     console.error('Error fetching post by slug:', error);
     throw new Error(`Failed to fetch post: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -206,7 +207,7 @@ export async function getPostBySlug(slug: string): Promise<Post | null> {
  */
 export async function getFeaturedPosts(limit: number = 3): Promise<Post[]> {
   try {
-    const result = await sql`
+    const rows = await sql`
       SELECT
         p.id,
         p.slug,
@@ -230,7 +231,7 @@ export async function getFeaturedPosts(limit: number = 3): Promise<Post[]> {
       LIMIT ${limit}
     `;
 
-    return result.rows.map(mapRowToPost);
+    return rows.map(mapRowToPost);
   } catch (error) {
     console.error('Error fetching featured posts:', error);
     throw new Error(`Failed to fetch featured posts: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -249,7 +250,7 @@ export async function getFeaturedPosts(limit: number = 3): Promise<Post[]> {
  */
 export async function searchPosts(query: string, limit: number = 20): Promise<Post[]> {
   try {
-    const result = await sql`
+    const rows = await sql`
       SELECT
         p.id,
         p.slug,
@@ -274,7 +275,7 @@ export async function searchPosts(query: string, limit: number = 20): Promise<Po
       LIMIT ${limit}
     `;
 
-    return result.rows.map(mapRowToPost);
+    return rows.map(mapRowToPost);
   } catch (error) {
     console.error('Error searching posts:', error);
     throw new Error(`Failed to search posts: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -291,7 +292,7 @@ export async function searchPosts(query: string, limit: number = 20): Promise<Po
  */
 export async function getPostsByTag(tagSlug: string): Promise<Post[]> {
   try {
-    const result = await sql`
+    const rows = await sql`
       SELECT
         p.id,
         p.slug,
@@ -316,7 +317,7 @@ export async function getPostsByTag(tagSlug: string): Promise<Post[]> {
       ORDER BY p.published_at DESC
     `;
 
-    return result.rows.map(mapRowToPost);
+    return rows.map(mapRowToPost);
   } catch (error) {
     console.error('Error fetching posts by tag:', error);
     throw new Error(`Failed to fetch posts by tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -333,7 +334,7 @@ export async function getPostsByTag(tagSlug: string): Promise<Post[]> {
  */
 export async function getPostsByAuthor(authorSlug: string): Promise<Post[]> {
   try {
-    const result = await sql`
+    const rows = await sql`
       SELECT
         p.id,
         p.slug,
@@ -357,7 +358,7 @@ export async function getPostsByAuthor(authorSlug: string): Promise<Post[]> {
       ORDER BY p.published_at DESC
     `;
 
-    return result.rows.map(mapRowToPost);
+    return rows.map(mapRowToPost);
   } catch (error) {
     console.error('Error fetching posts by author:', error);
     throw new Error(`Failed to fetch posts by author: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -397,7 +398,7 @@ export async function incrementPostViews(slug: string): Promise<void> {
  */
 export async function getAuthors(): Promise<Author[]> {
   try {
-    const result = await sql`
+    const rows = await sql`
       SELECT
         id,
         slug,
@@ -413,7 +414,7 @@ export async function getAuthors(): Promise<Author[]> {
       ORDER BY name ASC
     `;
 
-    return result.rows.map(mapRowToAuthor);
+    return rows.map(mapRowToAuthor);
   } catch (error) {
     console.error('Error fetching authors:', error);
     throw new Error(`Failed to fetch authors: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -430,7 +431,7 @@ export async function getAuthors(): Promise<Author[]> {
  */
 export async function getAuthorBySlug(slug: string): Promise<Author | null> {
   try {
-    const result = await sql`
+    const rows = await sql`
       SELECT
         id,
         slug,
@@ -447,11 +448,11 @@ export async function getAuthorBySlug(slug: string): Promise<Author | null> {
       LIMIT 1
     `;
 
-    if (result.rows.length === 0) {
+    if (rows.length === 0) {
       return null;
     }
 
-    return mapRowToAuthor(result.rows[0]);
+    return mapRowToAuthor(rows[0]);
   } catch (error) {
     console.error('Error fetching author by slug:', error);
     throw new Error(`Failed to fetch author: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -471,7 +472,7 @@ export async function getAuthorBySlug(slug: string): Promise<Author | null> {
  */
 export async function getTags(): Promise<Tag[]> {
   try {
-    const result = await sql`
+    const rows = await sql`
       SELECT
         id,
         slug,
@@ -482,7 +483,7 @@ export async function getTags(): Promise<Tag[]> {
       ORDER BY name ASC
     `;
 
-    return result.rows.map(mapRowToTag);
+    return rows.map(mapRowToTag);
   } catch (error) {
     console.error('Error fetching tags:', error);
     throw new Error(`Failed to fetch tags: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -499,7 +500,7 @@ export async function getTags(): Promise<Tag[]> {
  */
 export async function getTagBySlug(slug: string): Promise<Tag | null> {
   try {
-    const result = await sql`
+    const rows = await sql`
       SELECT
         id,
         slug,
@@ -511,11 +512,11 @@ export async function getTagBySlug(slug: string): Promise<Tag | null> {
       LIMIT 1
     `;
 
-    if (result.rows.length === 0) {
+    if (rows.length === 0) {
       return null;
     }
 
-    return mapRowToTag(result.rows[0]);
+    return mapRowToTag(rows[0]);
   } catch (error) {
     console.error('Error fetching tag by slug:', error);
     throw new Error(`Failed to fetch tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -532,7 +533,7 @@ export async function getTagBySlug(slug: string): Promise<Tag | null> {
  */
 export async function getTagsForPost(postId: string): Promise<Tag[]> {
   try {
-    const result = await sql`
+    const rows = await sql`
       SELECT
         t.id,
         t.slug,
@@ -545,7 +546,7 @@ export async function getTagsForPost(postId: string): Promise<Tag[]> {
       ORDER BY t.name ASC
     `;
 
-    return result.rows.map(mapRowToTag);
+    return rows.map(mapRowToTag);
   } catch (error) {
     console.error('Error fetching tags for post:', error);
     throw new Error(`Failed to fetch tags for post: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -565,7 +566,7 @@ export async function getTagsForPost(postId: string): Promise<Tag[]> {
  */
 export async function getPages(): Promise<Page[]> {
   try {
-    const result = await sql`
+    const rows = await sql`
       SELECT
         id,
         slug,
@@ -583,7 +584,7 @@ export async function getPages(): Promise<Page[]> {
       ORDER BY title ASC
     `;
 
-    return result.rows.map(mapRowToPage);
+    return rows.map(mapRowToPage);
   } catch (error) {
     console.error('Error fetching pages:', error);
     throw new Error(`Failed to fetch pages: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -600,7 +601,7 @@ export async function getPages(): Promise<Page[]> {
  */
 export async function getPageBySlug(slug: string): Promise<Page | null> {
   try {
-    const result = await sql`
+    const rows = await sql`
       SELECT
         id,
         slug,
@@ -619,11 +620,11 @@ export async function getPageBySlug(slug: string): Promise<Page | null> {
       LIMIT 1
     `;
 
-    if (result.rows.length === 0) {
+    if (rows.length === 0) {
       return null;
     }
 
-    return mapRowToPage(result.rows[0]);
+    return mapRowToPage(rows[0]);
   } catch (error) {
     console.error('Error fetching page by slug:', error);
     throw new Error(`Failed to fetch page: ${error instanceof Error ? error.message : 'Unknown error'}`);

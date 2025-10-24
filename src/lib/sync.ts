@@ -13,7 +13,7 @@
 
 import { Octokit } from '@octokit/rest';
 import crypto from 'crypto';
-import { sql } from '@vercel/postgres';
+import { neon } from '@neondatabase/serverless';
 import {
   parsePostFrontmatter,
   parseAuthorFrontmatter,
@@ -30,6 +30,9 @@ import type {
   AuthorFrontmatter,
   PageFrontmatter,
 } from '@/types';
+
+// Initialize Neon serverless SQL client
+const sql = neon(process.env.DATABASE_URL!);
 
 // ===========================================================================
 // GitHub Configuration
@@ -247,42 +250,42 @@ export async function processDeletedFile(
   try {
     // Delete based on resource type
     if (resourceType === 'post') {
-      const result = await sql`
+      const rows = await sql`
         DELETE FROM posts WHERE slug = ${slug} RETURNING id
       `;
-      if (result.rows.length > 0) {
+      if (rows.length > 0) {
         await logSync(
           'delete',
           resourceType,
-          result.rows[0].id,
+          rows[0].id,
           commitSha,
           'success',
           { path, slug }
         );
       }
     } else if (resourceType === 'author') {
-      const result = await sql`
+      const rows = await sql`
         DELETE FROM authors WHERE slug = ${slug} RETURNING id
       `;
-      if (result.rows.length > 0) {
+      if (rows.length > 0) {
         await logSync(
           'delete',
           resourceType,
-          result.rows[0].id,
+          rows[0].id,
           commitSha,
           'success',
           { path, slug }
         );
       }
     } else if (resourceType === 'page') {
-      const result = await sql`
+      const rows = await sql`
         DELETE FROM pages WHERE slug = ${slug} RETURNING id
       `;
-      if (result.rows.length > 0) {
+      if (rows.length > 0) {
         await logSync(
           'delete',
           resourceType,
-          result.rows[0].id,
+          rows[0].id,
           commitSha,
           'success',
           { path, slug }
@@ -327,14 +330,14 @@ export async function upsertPost(
 
     if (!author) {
       // Create placeholder author if not found
-      const result = await sql`
+      const rows = await sql`
         INSERT INTO authors (slug, name)
         VALUES (${frontmatter.author}, ${frontmatter.author})
         ON CONFLICT (slug) DO NOTHING
         RETURNING id
       `;
-      if (result.rows.length > 0) {
-        author = { id: result.rows[0].id } as any;
+      if (rows.length > 0) {
+        author = { id: rows[0].id } as any;
       } else {
         // If conflict occurred, fetch the existing author
         author = await getAuthorBySlug(frontmatter.author);
@@ -363,7 +366,7 @@ export async function upsertPost(
     const authorId = author!.id;
 
     // Upsert post
-    const result = await sql`
+    const rows = await sql`
       INSERT INTO posts (
         slug, title, excerpt, content, content_html, author_id,
         status, featured_image, reading_time, published_at
@@ -385,7 +388,7 @@ export async function upsertPost(
       RETURNING id
     `;
 
-    const postId = result.rows[0].id;
+    const postId = rows[0].id;
 
     // Sync tags
     if (frontmatter.tags && frontmatter.tags.length > 0) {
@@ -400,14 +403,14 @@ export async function upsertPost(
         let tag = await getTagBySlug(tagSlug);
 
         if (!tag) {
-          const tagResult = await sql`
+          const tagRows = await sql`
             INSERT INTO tags (slug, name)
             VALUES (${tagSlug}, ${tagSlug})
             ON CONFLICT (slug) DO NOTHING
             RETURNING id
           `;
-          if (tagResult.rows.length > 0) {
-            tag = { id: tagResult.rows[0].id } as any;
+          if (tagRows.length > 0) {
+            tag = { id: tagRows[0].id } as any;
           } else {
             // If conflict occurred, fetch the existing tag
             tag = await getTagBySlug(tagSlug);
@@ -464,7 +467,7 @@ export async function upsertAuthor(
     const social = frontmatter.social ? JSON.stringify(frontmatter.social) : '{}';
 
     // Upsert author
-    const result = await sql`
+    const rows = await sql`
       INSERT INTO authors (
         slug, name, email, bio, avatar_url, website, social
       ) VALUES (
@@ -483,7 +486,7 @@ export async function upsertAuthor(
       RETURNING id
     `;
 
-    const authorId = result.rows[0].id;
+    const authorId = rows[0].id;
 
     // Log successful sync
     await logSync('sync', 'author', authorId, commitSha, 'success', {
@@ -527,7 +530,7 @@ export async function upsertPage(
     const status = frontmatter.status || 'draft';
 
     // Upsert page
-    const result = await sql`
+    const rows = await sql`
       INSERT INTO pages (
         slug, title, content, content_html, status, template,
         meta_description, published_at
@@ -548,7 +551,7 @@ export async function upsertPage(
       RETURNING id
     `;
 
-    const pageId = result.rows[0].id;
+    const pageId = rows[0].id;
 
     // Log successful sync
     await logSync('sync', 'page', pageId, commitSha, 'success', {

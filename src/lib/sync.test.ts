@@ -7,21 +7,11 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import crypto from 'crypto';
-import {
-  processWebhook,
-  verifyWebhookSignature,
-  extractSlugFromPath,
-  getResourceTypeFromPath,
-  filterContentFiles,
-  fetchFileFromGitHub,
-  processFile,
-  processDeletedFile,
-  upsertPost,
-  upsertAuthor,
-  upsertPage,
-  logSync,
-} from './sync';
-import type { GitHubWebhookPayload } from '@/types';
+
+// Mock @neondatabase/serverless
+const { mockSql } = vi.hoisted(() => ({
+  mockSql: vi.fn(),
+}));
 
 // Mock dependencies
 vi.mock('@octokit/rest', () => {
@@ -36,8 +26,8 @@ vi.mock('@octokit/rest', () => {
   };
 });
 
-vi.mock('@vercel/postgres', () => ({
-  sql: vi.fn(),
+vi.mock('@neondatabase/serverless', () => ({
+  neon: vi.fn(() => mockSql),
 }));
 
 vi.mock('./markdown', () => ({
@@ -56,9 +46,23 @@ vi.mock('./db', () => ({
 
 // Import mocked modules
 import { Octokit } from '@octokit/rest';
-import { sql } from '@vercel/postgres';
 import * as markdown from './markdown';
 import * as db from './db';
+import {
+  processWebhook,
+  verifyWebhookSignature,
+  extractSlugFromPath,
+  getResourceTypeFromPath,
+  filterContentFiles,
+  fetchFileFromGitHub,
+  processFile,
+  processDeletedFile,
+  upsertPost,
+  upsertAuthor,
+  upsertPage,
+  logSync,
+} from './sync';
+import type { GitHubWebhookPayload } from '@/types';
 
 // ===========================================================================
 // Webhook Signature Verification Tests
@@ -349,7 +353,7 @@ describe('upsertPost', () => {
     (markdown.extractExcerpt as any).mockReturnValue('Excerpt text');
     (db.getTagBySlug as any).mockResolvedValue({ id: 'tag-1' });
 
-    (sql as any).mockResolvedValue({ rows: [{ id: 'post-123' }] });
+    mockSql.mockResolvedValue([{ id: 'post-123' }]);
 
     await upsertPost('test-post', frontmatter, 'Content', 'abc123');
 
@@ -377,11 +381,11 @@ describe('upsertAuthor', () => {
       },
     };
 
-    (sql as any).mockResolvedValue({ rows: [{ id: 'author-123' }] });
+    mockSql.mockResolvedValue([{ id: 'author-123' }]);
 
     await upsertAuthor('john-doe', frontmatter, 'abc123');
 
-    expect(sql).toHaveBeenCalled();
+    expect(mockSql).toHaveBeenCalled();
   });
 });
 
@@ -400,12 +404,12 @@ describe('upsertPage', () => {
     };
 
     (markdown.markdownToHtml as any).mockResolvedValue('<p>About content</p>');
-    (sql as any).mockResolvedValue({ rows: [{ id: 'page-123' }] });
+    mockSql.mockResolvedValue([{ id: 'page-123' }]);
 
     await upsertPage('about', frontmatter, 'Content', 'abc123');
 
     expect(markdown.markdownToHtml).toHaveBeenCalledWith('Content');
-    expect(sql).toHaveBeenCalled();
+    expect(mockSql).toHaveBeenCalled();
   });
 });
 
@@ -419,7 +423,7 @@ describe('logSync', () => {
   });
 
   it('should log successful sync operations', async () => {
-    (sql as any).mockResolvedValue({ rows: [] });
+    mockSql.mockResolvedValue([]);
 
     await logSync('sync', 'post', 'post-123', 'abc123', 'success', {
       slug: 'test-post',
@@ -427,21 +431,21 @@ describe('logSync', () => {
     });
 
     // sql is called as a tagged template, so just check it was called
-    expect(sql).toHaveBeenCalledTimes(1);
+    expect(mockSql).toHaveBeenCalledTimes(1);
   });
 
   it('should log errors with error message', async () => {
-    (sql as any).mockResolvedValue({ rows: [] });
+    mockSql.mockResolvedValue([]);
 
     await logSync('sync', 'post', 'post-123', 'abc123', 'error', {
       error: 'Processing failed',
     });
 
-    expect(sql).toHaveBeenCalledTimes(1);
+    expect(mockSql).toHaveBeenCalledTimes(1);
   });
 
   it('should not throw on logging errors', async () => {
-    (sql as any).mockRejectedValue(new Error('Logging failed'));
+    mockSql.mockRejectedValue(new Error('Logging failed'));
 
     // Should not throw
     await expect(
@@ -450,12 +454,12 @@ describe('logSync', () => {
   });
 
   it('should handle different event types', async () => {
-    (sql as any).mockResolvedValue({ rows: [] });
+    mockSql.mockResolvedValue([]);
 
     await logSync('create', 'author', 'author-123', 'abc123', 'success');
     await logSync('update', 'page', 'page-123', 'abc123', 'success');
     await logSync('delete', 'tag', 'tag-123', 'abc123', 'success');
 
-    expect(sql).toHaveBeenCalledTimes(3);
+    expect(mockSql).toHaveBeenCalledTimes(3);
   });
 });
