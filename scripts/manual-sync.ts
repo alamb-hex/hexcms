@@ -34,7 +34,7 @@ import {
 
 // Configuration
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_REPO_OWNER = process.env.GITHUB_REPO_OWNER || 'Hexaxia-Technologies';
+const GITHUB_REPO_OWNER = process.env.GITHUB_REPO_OWNER || 'alamb-hex';
 const GITHUB_REPO_NAME = process.env.GITHUB_REPO_NAME || 'hexcms-content';
 const CONTENT_DIR = 'content';
 

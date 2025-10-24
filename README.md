@@ -54,7 +54,7 @@ Markdown (Git) → GitHub Webhook → Sync Service → PostgreSQL → Next.js (I
 
 ```bash
 # Clone the repository
-git clone https://github.com/Hexaxia-Technologies/hexcms.git
+git clone https://github.com/alamb-hex/hexcms.git
 cd hexcms
 
 # Install dependencies
@@ -289,8 +289,8 @@ See [Agent Documentation](./.claude/) for complete details.
 ## Support
 
 - **Documentation:** [docs/README.md](./docs/README.md)
-- **Issues:** [GitHub Issues](https://github.com/Hexaxia-Technologies/hexcms/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/Hexaxia-Technologies/hexcms/discussions)
+- **Issues:** [GitHub Issues](https://github.com/alamb-hex/hexcms/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/alamb-hex/hexcms/discussions)
 
 ---
 
